@@ -1,9 +1,16 @@
--- [[ aimtop v2 | Skeet (Gamesense) Edition ]] --
+-- [[ aimtop v2 | by kupa scripts ]] --
 
--- Загрузка библиотеки Skeet UI (Gamesense)
-local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/skatbr/Luau-SkeetUI/main/SkeetUI.lua"))()
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
-local Window = Library:CreateWindow("aimtop v2 | Skeet Edition")
+local Window = Rayfield:CreateWindow({
+   Name = "aimtop v2 | Best aim for all games",
+   LoadingTitle = "aimtop",
+   LoadingSubtitle = "by kupa scripts",
+   ConfigurationSaving = {
+      Enabled = false,
+   },
+   KeySystem = false
+})
 
 -- Service References
 local Players = game:GetService("Players")
@@ -14,7 +21,7 @@ local LocalPlayer = Players.LocalPlayer
 
 -- State Variables
 local AimbotEnabled = false
-local TargetNPCs = true
+local TargetNPCs = true -- Флаг для захвата ботов
 local AimFOV = 150
 local AimPart = "Head"
 local Smoothness = 0.2
@@ -80,24 +87,24 @@ local function MakeDraggable(guiObject)
     end)
 end
 
--- Create Floating Mobile Button
-local function CreateMobileButton(name, text, defaultPos)
+-- Create Rayfield-Styled Floating Button
+local function CreateRayfieldButton(name, text, defaultPos)
     local frame = Instance.new("TextButton")
     frame.Name = name
     frame.Size = UDim2.new(0, 75, 0, 75)
     frame.Position = defaultPos
-    frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    frame.BackgroundColor3 = Color3.fromRGB(28, 28, 36)
     frame.AutoButtonColor = false
     frame.Text = ""
     frame.Visible = false
     frame.Parent = MobileScreenGui
 
     local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 10)
+    corner.CornerRadius = UDim.new(0, 16)
     corner.Parent = frame
 
     local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(50, 180, 50)
+    stroke.Color = Color3.fromRGB(44, 44, 56)
     stroke.Thickness = 2
     stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     stroke.Parent = frame
@@ -109,7 +116,7 @@ local function CreateMobileButton(name, text, defaultPos)
     label.Text = text
     label.TextColor3 = Color3.fromRGB(240, 240, 240)
     label.TextSize = 14
-    label.Font = Enum.Font.Code
+    label.Font = Enum.Font.GothamBold
     label.Parent = frame
 
     local indicator = Instance.new("Frame")
@@ -127,398 +134,422 @@ local function CreateMobileButton(name, text, defaultPos)
     return frame, indicator, stroke
 end
 
-local AimBtnFrame, AimBtnInd, AimBtnStroke = CreateMobileButton("AimButton", "AIM", UDim2.new(0.8, 0, 0.35, 0))
-local WallBtnFrame, WallBtnInd, WallBtnStroke = CreateMobileButton("WallButton", "WALL", UDim2.new(0.8, 0, 0.48, 0))
+local AimBtnFrame, AimBtnInd, AimBtnStroke = CreateRayfieldButton("AimButton", "AIM", UDim2.new(0.8, 0, 0.35, 0))
+local WallBtnFrame, WallBtnInd, WallBtnStroke = CreateRayfieldButton("WallButton", "WALL", UDim2.new(0.8, 0, 0.48, 0))
 
 local function UpdateButtonState(frame, indicator, stroke, state)
     if state then
-        indicator.BackgroundColor3 = Color3.fromRGB(150, 200, 60)
-        stroke.Color = Color3.fromRGB(150, 200, 60)
+        indicator.BackgroundColor3 = Color3.fromRGB(60, 220, 100)
+        stroke.Color = Color3.fromRGB(60, 220, 100)
     else
         indicator.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
-        stroke.Color = Color3.fromRGB(50, 50, 50)
+        stroke.Color = Color3.fromRGB(44, 44, 56)
     end
 end
+
+-- FOV Circle Object
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Thickness = 1.5
+FOVCircle.NumSides = 60
+FOVCircle.Radius = AimFOV
+FOVCircle.Filled = false
+FOVCircle.Visible = false
 
 -- ESP Highlights Container
 local Highlights = {}
 
--- ================= SKEET UI TABS =================
-local LegitTab = Window:AddTab("Legit")
-local VisualsTab = Window:AddTab("Visuals")
-local MiscTab = Window:AddTab("Misc")
+-- Tabs
+local MainTab = Window:CreateTab("Aimbot", 4483362458)
+local VisualsTab = Window:CreateTab("ESP & Visuals", 4483362458)
+local MovementTab = Window:CreateTab("Movement", 4483362458)
 
--- ================= LEGIT TAB =================
-local AimGroup = LegitTab:AddGroupBox("Aimbot Settings")
-
-local AimToggle = AimGroup:AddToggle("Enable Aimbot", {
-    Default = false,
-    Callback = function(Value)
-        AimbotEnabled = Value
-        UpdateButtonState(AimBtnFrame, AimBtnInd, AimBtnStroke, Value)
-    end
+-- ================= AIMBOT TAB =================
+local AimToggle = MainTab:CreateToggle({
+   Name = "Enable Aimbot",
+   CurrentValue = false,
+   Callback = function(Value)
+      AimbotEnabled = Value
+      UpdateButtonState(AimBtnFrame, AimBtnInd, AimBtnStroke, Value)
+   end,
 })
 
-AimGroup:AddToggle("Target NPCs (Боты)", {
-    Default = true,
-    Callback = function(Value)
-        TargetNPCs = Value
-    end
+MainTab:CreateToggle({
+   Name = "Target NPCs (Детектить ботов)",
+   CurrentValue = true,
+   Callback = function(Value)
+      TargetNPCs = Value
+   end,
 })
 
-local WallToggle = AimGroup:AddToggle("Wall Check", {
-    Default = false,
-    Callback = function(Value)
-        WallCheck = Value
-        UpdateButtonState(WallBtnFrame, WallBtnInd, WallBtnStroke, Value)
-    end
+local WallToggle = MainTab:CreateToggle({
+   Name = "Wall Check (Проверка стен)",
+   CurrentValue = false,
+   Callback = function(Value)
+      WallCheck = Value
+      UpdateButtonState(WallBtnFrame, WallBtnInd, WallBtnStroke, Value)
+   end,
 })
 
-AimGroup:AddToggle("Team Check", {
-    Default = false,
-    Callback = function(Value)
-        TeamCheck = Value
-    end
+MainTab:CreateToggle({
+   Name = "Team Check (Проверка команд)",
+   CurrentValue = false,
+   Callback = function(Value)
+      TeamCheck = Value
+   end,
 })
 
-AimGroup:AddToggle("No Smoothness (Мгновенно)", {
-    Default = false,
-    Callback = function(Value)
-        NoSmoothness = Value
-    end
+MainTab:CreateToggle({
+   Name = "Add Aim Button",
+   CurrentValue = false,
+   Callback = function(Value)
+      AimBtnFrame.Visible = Value
+   end,
 })
 
-AimGroup:AddDropdown("Aim Target Part", {
-    Values = {"Head", "HumanoidRootPart"},
-    Default = "Head",
-    Callback = function(Value)
-        AimPart = Value
-    end
+MainTab:CreateToggle({
+   Name = "Add Wall Check Button",
+   CurrentValue = false,
+   Callback = function(Value)
+      WallBtnFrame.Visible = Value
+   end,
 })
 
-AimGroup:AddSlider("Aimbot FOV", {
-    Min = 30,
-    Max = 500,
-    Default = 150,
-    Rounding = 0,
-    Callback = function(Value)
-        AimFOV = Value
-        Library.FovCircle.Radius = Value
-    end
+MainTab:CreateToggle({
+   Name = "No плавность (Мгновенный аим)",
+   CurrentValue = false,
+   Callback = function(Value)
+      NoSmoothness = Value
+   end,
 })
 
-AimGroup:AddSlider("Smoothness", {
-    Min = 0.05,
-    Max = 1,
-    Default = 0.2,
-    Rounding = 2,
-    Callback = function(Value)
-        Smoothness = Value
-    end
+MainTab:CreateDropdown({
+   Name = "Aim Target Part",
+   Options = {"Head", "HumanoidRootPart"},
+   CurrentOption = "Head",
+   Callback = function(Option)
+      AimPart = type(Option) == "table" and Option[1] or Option
+   end,
 })
 
-local MobileGroup = LegitTab:AddGroupBox("Mobile Buttons")
-
-MobileGroup:AddToggle("Show Aim Button", {
-    Default = false,
-    Callback = function(Value)
-        AimBtnFrame.Visible = Value
-    end
+MainTab:CreateSlider({
+   Name = "Aimbot FOV",
+   Range = {30, 500},
+   Increment = 5,
+   Suffix = "px",
+   CurrentValue = 150,
+   Callback = function(Value)
+      AimFOV = Value
+      FOVCircle.Radius = Value
+   end,
 })
 
-MobileGroup:AddToggle("Show Wall Check Button", {
-    Default = false,
-    Callback = function(Value)
-        WallBtnFrame.Visible = Value
-    end
+MainTab:CreateSlider({
+   Name = "Smoothness (Плавность)",
+   Range = {0.05, 1},
+   Increment = 0.05,
+   CurrentValue = 0.2,
+   Callback = function(Value)
+      Smoothness = Value
+   end,
 })
 
 -- On-Screen Button Clicks
 AimBtnFrame.MouseButton1Click:Connect(function()
-    AimToggle:SetState(not AimbotEnabled)
+   AimToggle:Set(not AimbotEnabled)
 end)
 
 WallBtnFrame.MouseButton1Click:Connect(function()
-    WallToggle:SetState(not WallCheck)
+   WallToggle:Set(not WallCheck)
 end)
 
 -- ================= VISUALS TAB =================
-local EspGroup = VisualsTab:AddGroupBox("ESP Options")
+VisualsTab:CreateSection("ESP Options")
 
-EspGroup:AddToggle("Enable ESP", {
-    Default = false,
-    Callback = function(Value)
-        EspEnabled = Value
-        if not Value then
-            for _, highlight in pairs(Highlights) do
-                if typeof(highlight) == "Instance" then
-                    highlight:Destroy()
-                end
+VisualsTab:CreateToggle({
+   Name = "Enable ESP",
+   CurrentValue = false,
+   Callback = function(Value)
+      EspEnabled = Value
+      if not Value then
+         for _, highlight in pairs(Highlights) do
+            if typeof(highlight) == "Instance" then
+               highlight:Destroy()
             end
-            Highlights = {}
-        end
-    end
+         end
+         Highlights = {}
+      end
+   end,
 })
 
-EspGroup:AddColorpicker("ESP Color", {
-    Default = Color3.fromRGB(255, 0, 0),
+VisualsTab:CreateColorPicker({
+    Name = "ESP Color",
+    Color = Color3.fromRGB(255, 0, 0),
     Callback = function(Value)
         EspColor = Value
     end
 })
 
-EspGroup:AddToggle("ESP Rainbow Mode", {
-    Default = false,
-    Callback = function(Value)
-        EspRainbow = Value
-    end
+VisualsTab:CreateToggle({
+   Name = "ESP Rainbow Mode",
+   CurrentValue = false,
+   Callback = function(Value)
+      EspRainbow = Value
+   end,
 })
 
-local FovGroup = VisualsTab:AddGroupBox("FOV Circle Options")
+VisualsTab:CreateSection("FOV Circle Options")
 
-FovGroup:AddToggle("Show FOV Circle", {
-    Default = false,
-    Callback = function(Value)
-        FovVisible = Value
-        Library.FovCircle.Visible = Value
-    end
+VisualsTab:CreateToggle({
+   Name = "Show FOV Circle",
+   CurrentValue = false,
+   Callback = function(Value)
+      FovVisible = Value
+      FOVCircle.Visible = Value
+   end,
 })
 
-FovGroup:AddColorpicker("FOV Circle Color", {
-    Default = Color3.fromRGB(255, 255, 255),
+VisualsTab:CreateColorPicker({
+    Name = "FOV Circle Color",
+    Color = Color3.fromRGB(255, 255, 255),
     Callback = function(Value)
         FovColor = Value
-        Library.FovCircle.Color = Value
+        FOVCircle.Color = Value
     end
 })
 
-FovGroup:AddToggle("FOV Rainbow Mode", {
-    Default = false,
-    Callback = function(Value)
-        FovRainbow = Value
-    end
+VisualsTab:CreateToggle({
+   Name = "FOV Rainbow Mode",
+   CurrentValue = false,
+   Callback = function(Value)
+      FovRainbow = Value
+   end,
 })
 
--- ================= MISC TAB =================
-local MovementGroup = MiscTab:AddGroupBox("Movement Modifications")
-
-MovementGroup:AddToggle("Enable Custom Speed", {
-    Default = false,
-    Callback = function(Value)
-        SpeedEnabled = Value
-        if not Value and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-            LocalPlayer.Character.Humanoid.WalkSpeed = 16
-        end
-    end
+-- ================= MOVEMENT TAB =================
+MovementTab:CreateToggle({
+   Name = "Enable Custom Speed",
+   CurrentValue = false,
+   Callback = function(Value)
+      SpeedEnabled = Value
+      if not Value and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+         LocalPlayer.Character.Humanoid.WalkSpeed = 16
+      end
+   end,
 })
 
-MovementGroup:AddSlider("WalkSpeed", {
-    Min = 16,
-    Max = 200,
-    Default = 16,
-    Rounding = 0,
-    Callback = function(Value)
-        WalkSpeedValue = Value
-    end
+MovementTab:CreateSlider({
+   Name = "WalkSpeed",
+   Range = {16, 200},
+   Increment = 1,
+   CurrentValue = 16,
+   Callback = function(Value)
+      WalkSpeedValue = Value
+   end,
 })
 
-MovementGroup:AddToggle("Enable Custom Jump", {
-    Default = false,
-    Callback = function(Value)
-        JumpEnabled = Value
-        if not Value and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-            LocalPlayer.Character.Humanoid.JumpPower = 50
-        end
-    end
+MovementTab:CreateToggle({
+   Name = "Enable Custom Jump",
+   CurrentValue = false,
+   Callback = function(Value)
+      JumpEnabled = Value
+      if not Value and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+         LocalPlayer.Character.Humanoid.JumpPower = 50
+      end
+   end,
 })
 
-MovementGroup:AddSlider("JumpPower", {
-    Min = 50,
-    Max = 300,
-    Default = 50,
-    Rounding = 0,
-    Callback = function(Value)
-        JumpPowerValue = Value
-    end
+MovementTab:CreateSlider({
+   Name = "JumpPower",
+   Range = {50, 300},
+   Increment = 5,
+   CurrentValue = 50,
+   Callback = function(Value)
+      JumpPowerValue = Value
+   end,
 })
 
 -- ================= LOGIC & LOOPS =================
 
 -- Проверка видимости за стеной
 local function IsVisible(targetPart)
-    if not WallCheck then return true end
+   if not WallCheck then return true end
    
-    local origin = Camera.CFrame.Position
-    local destination = targetPart.Position
-    local raycastParams = RaycastParams.new()
+   local origin = Camera.CFrame.Position
+   local destination = targetPart.Position
+   local raycastParams = RaycastParams.new()
    
-    raycastParams.FilterType = RaycastFilterType.Exclude
-    raycastParams.FilterDescendantsInstances = {LocalPlayer.Character, Camera}
-    raycastParams.IgnoreWater = true
+   raycastParams.FilterType = RaycastFilterType.Exclude
+   raycastParams.FilterDescendantsInstances = {LocalPlayer.Character, Camera}
+   raycastParams.IgnoreWater = true
    
-    local result = workspace:Raycast(origin, destination - origin, raycastParams)
+   local result = workspace:Raycast(origin, destination - origin, raycastParams)
    
-    if result then
-        return result.Instance:IsDescendantOf(targetPart.Parent)
-    end
-    return true
+   if result then
+      return result.Instance:IsDescendantOf(targetPart.Parent)
+   end
+   return true
 end
 
 -- Проверка валидности цели (Игрок или Бот)
 local function IsValidTarget(model)
-    if not model or not model:IsA("Model") or model == LocalPlayer.Character then return false end
+   if not model or not model:IsA("Model") or model == LocalPlayer.Character then return false end
 
-    local humanoid = model:FindFirstChildOfClass("Humanoid")
-    local targetPart = model:FindFirstChild(AimPart) or model:FindFirstChild("HumanoidRootPart")
+   local humanoid = model:FindFirstChildOfClass("Humanoid")
+   local targetPart = model:FindFirstChild(AimPart) or model:FindFirstChild("HumanoidRootPart")
    
-    if not humanoid or humanoid.Health <= 0 or not targetPart then
-        return false
-    end
+   if not humanoid or humanoid.Health <= 0 or not targetPart then
+      return false
+   end
 
-    local player = Players:GetPlayerFromCharacter(model)
-    if player then
-        if TeamCheck and player.Team == LocalPlayer.Team then
-            return false
-        end
-    else
-        if not TargetNPCs then
-            return false
-        end
-    end
+   local player = Players:GetPlayerFromCharacter(model)
+   if player then
+      -- Если это реальный игрок
+      if TeamCheck and player.Team == LocalPlayer.Team then
+         return false
+      end
+   else
+      -- Если это бот/NPC
+      if not TargetNPCs then
+         return false
+      end
+   end
 
-    return true, targetPart
+   return true, targetPart
 end
 
--- Поиск ближайшей цели по центру экрана
+-- Поиск ближайшей цели (Игрока или Бота) по центру экрана
 local function GetClosestTarget()
-    local closestTargetPart = nil
-    local shortestDistance = AimFOV
-    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+   local closestTargetPart = nil
+   local shortestDistance = AimFOV
+   local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 
-    -- Сканируем игроков
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
-            local valid, part = IsValidTarget(player.Character)
+   -- Сканируем игроков
+   for _, player in pairs(Players:GetPlayers()) do
+      if player ~= LocalPlayer and player.Character then
+         local valid, part = IsValidTarget(player.Character)
+         if valid then
+            local partPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+            if onScreen and IsVisible(part) then
+               local distance = (Vector2.new(partPos.X, partPos.Y) - screenCenter).Magnitude
+               if distance < shortestDistance then
+                  closestTargetPart = part
+                  shortestDistance = distance
+               end
+            end
+         end
+      end
+   end
+
+   -- Сканируем ботов в Workspace (если включено TargetNPCs)
+   if TargetNPCs then
+      for _, obj in pairs(workspace:GetChildren()) do
+         if obj:IsA("Model") and not Players:GetPlayerFromCharacter(obj) then
+            local valid, part = IsValidTarget(obj)
             if valid then
-                local partPos, onScreen = Camera:WorldToViewportPoint(part.Position)
-                if onScreen and IsVisible(part) then
-                    local distance = (Vector2.new(partPos.X, partPos.Y) - screenCenter).Magnitude
-                    if distance < shortestDistance then
-                        closestTargetPart = part
-                        shortestDistance = distance
-                    end
-                end
+               local partPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+               if onScreen and IsVisible(part) then
+                  local distance = (Vector2.new(partPos.X, partPos.Y) - screenCenter).Magnitude
+                  if distance < shortestDistance then
+                     closestTargetPart = part
+                     shortestDistance = distance
+                  end
+               end
             end
-        end
-    end
+         end
+      end
+   end
 
-    -- Сканируем ботов в Workspace
-    if TargetNPCs then
-        for _, obj in pairs(workspace:GetChildren()) do
-            if obj:IsA("Model") and not Players:GetPlayerFromCharacter(obj) then
-                local valid, part = IsValidTarget(obj)
-                if valid then
-                    local partPos, onScreen = Camera:WorldToViewportPoint(part.Position)
-                    if onScreen and IsVisible(part) then
-                        local distance = (Vector2.new(partPos.X, partPos.Y) - screenCenter).Magnitude
-                        if distance < shortestDistance then
-                            closestTargetPart = part
-                            shortestDistance = distance
-                        end
-                    end
-                end
-            end
-        end
-    end
-
-    return closestTargetPart
+   return closestTargetPart
 end
 
--- Основной рабочий цикл
+-- Основной цикл
 RunService.RenderStepped:Connect(function()
-    local hue = (tick() % 5) / 5
-    local rainbowColor = Color3.fromHSV(hue, 1, 1)
+   local hue = (tick() % 5) / 5
+   local rainbowColor = Color3.fromHSV(hue, 1, 1)
 
-    -- Rainbow для FOV
-    if FovRainbow then
-        Library.FovCircle.Color = rainbowColor
-    else
-        Library.FovCircle.Color = FovColor
-    end
+   -- Rainbow для FOV
+   if FovRainbow then
+      FOVCircle.Color = rainbowColor
+   else
+      FOVCircle.Color = FovColor
+   end
 
-    -- Аимбот
-    if AimbotEnabled then
-        local targetPart = GetClosestTarget()
-        if targetPart then
-            local targetCFrame = CFrame.new(Camera.CFrame.Position, targetPart.Position)
-            local currentSmoothness = NoSmoothness and 1 or Smoothness
-            Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, currentSmoothness)
-        end
-    end
+   -- Центрирование круга FOV
+   FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 
-    -- ESP Логика
-    if EspEnabled then
-        local activeColor = EspRainbow and rainbowColor or EspColor
+   -- Aimbot
+   if AimbotEnabled then
+      local targetPart = GetClosestTarget()
+      if targetPart then
+         local targetCFrame = CFrame.new(Camera.CFrame.Position, targetPart.Position)
+         local currentSmoothness = NoSmoothness and 1 or Smoothness
+         Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, currentSmoothness)
+      end
+   end
 
-        local function ApplyHighlight(model)
-            local highlight = Highlights[model]
-            if not highlight or highlight.Parent ~= model then
-                if highlight and typeof(highlight) == "Instance" then highlight:Destroy() end
-                highlight = Instance.new("Highlight")
-                highlight.Adornee = model
-                highlight.FillTransparency = 0.5
-                highlight.OutlineTransparency = 0
-                highlight.Parent = model
-                Highlights[model] = highlight
+   -- ESP Логика (Игроки + Боты)
+   if EspEnabled then
+      local activeColor = EspRainbow and rainbowColor or EspColor
+
+      local function ApplyHighlight(model)
+         local highlight = Highlights[model]
+         if not highlight or highlight.Parent ~= model then
+            if highlight and typeof(highlight) == "Instance" then highlight:Destroy() end
+            highlight = Instance.new("Highlight")
+            highlight.Adornee = model
+            highlight.FillTransparency = 0.5
+            highlight.OutlineTransparency = 0
+            highlight.Parent = model
+            Highlights[model] = highlight
+         end
+         highlight.FillColor = activeColor
+         highlight.OutlineColor = activeColor
+      end
+
+      -- ESP на игроков
+      for _, player in pairs(Players:GetPlayers()) do
+         if player ~= LocalPlayer and player.Character then
+            local valid = IsValidTarget(player.Character)
+            if valid then
+               ApplyHighlight(player.Character)
+            elseif Highlights[player.Character] then
+               Highlights[player.Character]:Destroy()
+               Highlights[player.Character] = nil
             end
-            highlight.FillColor = activeColor
-            highlight.OutlineColor = activeColor
-        end
+         end
+      end
 
-        -- ESP на игроков
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character then
-                local valid = IsValidTarget(player.Character)
-                if valid then
-                    ApplyHighlight(player.Character)
-                elseif Highlights[player.Character] then
-                    Highlights[player.Character]:Destroy()
-                    Highlights[player.Character] = nil
-                end
+      -- ESP на ботов
+      if TargetNPCs then
+         for _, obj in pairs(workspace:GetChildren()) do
+            if obj:IsA("Model") and not Players:GetPlayerFromCharacter(obj) then
+               local valid = IsValidTarget(obj)
+               if valid then
+                  ApplyHighlight(obj)
+               elseif Highlights[obj] then
+                  Highlights[obj]:Destroy()
+                  Highlights[obj] = nil
+               end
             end
-        end
+         end
+      end
+   end
 
-        -- ESP на ботов
-        if TargetNPCs then
-            for _, obj in pairs(workspace:GetChildren()) do
-                if obj:IsA("Model") and not Players:GetPlayerFromCharacter(obj) then
-                    local valid = IsValidTarget(obj)
-                    if valid then
-                        ApplyHighlight(obj)
-                    elseif Highlights[obj] then
-                        Highlights[obj]:Destroy()
-                        Highlights[obj] = nil
-                    end
-                end
-            end
-        end
-    end
-
-    -- Скорость и Прыжок
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-        if SpeedEnabled then
-            LocalPlayer.Character.Humanoid.WalkSpeed = WalkSpeedValue
-        end
-        if JumpEnabled then
-            LocalPlayer.Character.Humanoid.JumpPower = JumpPowerValue
-        end
-    end
+   -- Скорость и Прыжок
+   if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+      if SpeedEnabled then
+         LocalPlayer.Character.Humanoid.WalkSpeed = WalkSpeedValue
+      end
+      if JumpEnabled then
+         LocalPlayer.Character.Humanoid.JumpPower = JumpPowerValue
+      end
+   end
 end)
 
--- Очистка при выходе игрока
+-- Очистка при удалении персонажа/игрока
 Players.PlayerRemoving:Connect(function(player)
-    if player.Character and Highlights[player.Character] then
-        Highlights[player.Character]:Destroy()
-        Highlights[player.Character] = nil
-    end
+   if player.Character and Highlights[player.Character] then
+      Highlights[player.Character]:Destroy()
+      Highlights[player.Character] = nil
+   end
 end)
