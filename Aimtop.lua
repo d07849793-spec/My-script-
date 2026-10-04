@@ -1,4 +1,4 @@
--- [[ гемини тупой долбоеб ]] --
+-- [[ aimtop v2 | by kupa scripts ]] --
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
@@ -21,6 +21,7 @@ local LocalPlayer = Players.LocalPlayer
 
 -- State Variables
 local AimbotEnabled = false
+local TargetNPCs = true -- Флаг для захвата ботов
 local AimFOV = 150
 local AimPart = "Head"
 local Smoothness = 0.2
@@ -172,6 +173,14 @@ local AimToggle = MainTab:CreateToggle({
    end,
 })
 
+MainTab:CreateToggle({
+   Name = "Target NPCs (Детектить ботов)",
+   CurrentValue = true,
+   Callback = function(Value)
+      TargetNPCs = Value
+   end,
+})
+
 local WallToggle = MainTab:CreateToggle({
    Name = "Wall Check (Проверка стен)",
    CurrentValue = false,
@@ -263,7 +272,9 @@ VisualsTab:CreateToggle({
       EspEnabled = Value
       if not Value then
          for _, highlight in pairs(Highlights) do
-            highlight:Destroy()
+            if typeof(highlight) == "Instance" then
+               highlight:Destroy()
+            end
          end
          Highlights = {}
       end
@@ -379,34 +390,76 @@ local function IsVisible(targetPart)
    return true
 end
 
--- Проверка команды (Team Check)
-local function IsEnemy(player)
-   if not TeamCheck then return true end
-   return player.Team ~= LocalPlayer.Team
+-- Проверка валидности цели (Игрок или Бот)
+local function IsValidTarget(model)
+   if not model or not model:IsA("Model") or model == LocalPlayer.Character then return false end
+
+   local humanoid = model:FindFirstChildOfClass("Humanoid")
+   local targetPart = model:FindFirstChild(AimPart) or model:FindFirstChild("HumanoidRootPart")
+   
+   if not humanoid or humanoid.Health <= 0 or not targetPart then
+      return false
+   end
+
+   local player = Players:GetPlayerFromCharacter(model)
+   if player then
+      -- Если это реальный игрок
+      if TeamCheck and player.Team == LocalPlayer.Team then
+         return false
+      end
+   else
+      -- Если это бот/NPC
+      if not TargetNPCs then
+         return false
+      end
+   end
+
+   return true, targetPart
 end
 
--- Поиск ближайшего игрока по центру экрана
-local function GetClosestPlayer()
-   local closestPlayer = nil
+-- Поиск ближайшей цели (Игрока или Бота) по центру экрана
+local function GetClosestTarget()
+   local closestTargetPart = nil
    local shortestDistance = AimFOV
    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 
+   -- Сканируем игроков
    for _, player in pairs(Players:GetPlayers()) do
-      if player ~= LocalPlayer and IsEnemy(player) and player.Character and player.Character:FindFirstChild(AimPart) and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
-         local part = player.Character[AimPart]
-         local partPos, onScreen = Camera:WorldToViewportPoint(part.Position)
-         
-         if onScreen and IsVisible(part) then
-            local distance = (Vector2.new(partPos.X, partPos.Y) - screenCenter).Magnitude
-            if distance < shortestDistance then
-               closestPlayer = player
-               shortestDistance = distance
+      if player ~= LocalPlayer and player.Character then
+         local valid, part = IsValidTarget(player.Character)
+         if valid then
+            local partPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+            if onScreen and IsVisible(part) then
+               local distance = (Vector2.new(partPos.X, partPos.Y) - screenCenter).Magnitude
+               if distance < shortestDistance then
+                  closestTargetPart = part
+                  shortestDistance = distance
+               end
             end
          end
       end
    end
 
-   return closestPlayer
+   -- Сканируем ботов в Workspace (если включено TargetNPCs)
+   if TargetNPCs then
+      for _, obj in pairs(workspace:GetChildren()) do
+         if obj:IsA("Model") and not Players:GetPlayerFromCharacter(obj) then
+            local valid, part = IsValidTarget(obj)
+            if valid then
+               local partPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+               if onScreen and IsVisible(part) then
+                  local distance = (Vector2.new(partPos.X, partPos.Y) - screenCenter).Magnitude
+                  if distance < shortestDistance then
+                     closestTargetPart = part
+                     shortestDistance = distance
+                  end
+               end
+            end
+         end
+      end
+   end
+
+   return closestTargetPart
 end
 
 -- Основной цикл
@@ -426,32 +479,58 @@ RunService.RenderStepped:Connect(function()
 
    -- Aimbot
    if AimbotEnabled then
-      local target = GetClosestPlayer()
-      if target and target.Character and target.Character:FindFirstChild(AimPart) then
-         local targetCFrame = CFrame.new(Camera.CFrame.Position, target.Character[AimPart].Position)
+      local targetPart = GetClosestTarget()
+      if targetPart then
+         local targetCFrame = CFrame.new(Camera.CFrame.Position, targetPart.Position)
          local currentSmoothness = NoSmoothness and 1 or Smoothness
          Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, currentSmoothness)
       end
    end
 
-   -- ESP Логика
+   -- ESP Логика (Игроки + Боты)
    if EspEnabled then
+      local activeColor = EspRainbow and rainbowColor or EspColor
+
+      local function ApplyHighlight(model)
+         local highlight = Highlights[model]
+         if not highlight or highlight.Parent ~= model then
+            if highlight and typeof(highlight) == "Instance" then highlight:Destroy() end
+            highlight = Instance.new("Highlight")
+            highlight.Adornee = model
+            highlight.FillTransparency = 0.5
+            highlight.OutlineTransparency = 0
+            highlight.Parent = model
+            Highlights[model] = highlight
+         end
+         highlight.FillColor = activeColor
+         highlight.OutlineColor = activeColor
+      end
+
+      -- ESP на игроков
       for _, player in pairs(Players:GetPlayers()) do
          if player ~= LocalPlayer and player.Character then
-            local highlight = Highlights[player]
-            if not highlight or highlight.Parent ~= player.Character then
-               if highlight then highlight:Destroy() end
-               highlight = Instance.new("Highlight")
-               highlight.Adornee = player.Character
-               highlight.FillTransparency = 0.5
-               highlight.OutlineTransparency = 0
-               highlight.Parent = player.Character
-               Highlights[player] = highlight
+            local valid = IsValidTarget(player.Character)
+            if valid then
+               ApplyHighlight(player.Character)
+            elseif Highlights[player.Character] then
+               Highlights[player.Character]:Destroy()
+               Highlights[player.Character] = nil
             end
+         end
+      end
 
-            local activeColor = EspRainbow and rainbowColor or EspColor
-            highlight.FillColor = activeColor
-            highlight.OutlineColor = activeColor
+      -- ESP на ботов
+      if TargetNPCs then
+         for _, obj in pairs(workspace:GetChildren()) do
+            if obj:IsA("Model") and not Players:GetPlayerFromCharacter(obj) then
+               local valid = IsValidTarget(obj)
+               if valid then
+                  ApplyHighlight(obj)
+               elseif Highlights[obj] then
+                  Highlights[obj]:Destroy()
+                  Highlights[obj] = nil
+               end
+            end
          end
       end
    end
@@ -467,10 +546,10 @@ RunService.RenderStepped:Connect(function()
    end
 end)
 
--- Очистка при выходе игрока
+-- Очистка при удалении персонажа/игрока
 Players.PlayerRemoving:Connect(function(player)
-   if Highlights[player] then
-      Highlights[player]:Destroy()
-      Highlights[player] = nil
+   if player.Character and Highlights[player.Character] then
+      Highlights[player.Character]:Destroy()
+      Highlights[player.Character] = nil
    end
 end)
